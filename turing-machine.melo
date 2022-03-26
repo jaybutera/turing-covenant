@@ -1,0 +1,26 @@
+let data = unsafe env_parent_data() :! [{0}, Nat, %[100]],
+    # Parse apart the coin data
+    head = data[0],
+    cur_state = data[1],
+    tape = data[2],
+    v = tape[head],
+    # Spender coin
+    spender_cov_coin = unsafe vref(env_spender_tx().outputs, 0) :! CoinData,
+    spender_data = unsafe spender_cov_coin.additional_data :! %[100],
+    # Expected values for the spending coin's data
+    # The rules of the state transition function are specified here
+    next_head = if v: head+1 else head-1,
+    next_state = if cur_state && v: 0 else 1,
+    # At tape[head]: 0 -> 0, 1 -> 0
+    rest = blen(tape)-1 - head,
+    next_tape =
+        if v: b_slice(tape, 0, head) ++ %[0] ++ b_slice(tape, head, unsafe rest :! {0})
+        else tape in
+
+    # Check that script is perpetuated in spender
+    spender_cov_coin.covhash == env_self_hash()
+    && spender_data == [
+        next_head,
+        next_state,
+        next_tape,
+    ]
